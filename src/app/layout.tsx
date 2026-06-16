@@ -4,7 +4,7 @@ import { AppProvider } from "@/lib/AppContext";
 
 export const metadata: Metadata = {
   title: "Ali Focus",
-  description: "Daily focus system to work 8 focused hours, track tasks, deadlines, and weekly progress.",
+  description: "Shared team focus tracker — daily plans, sessions, tasks, deadlines, streaks, and progress.",
 };
 
 export default function RootLayout({

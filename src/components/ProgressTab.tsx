@@ -6,164 +6,169 @@ import {
   LineChart, Line, CartesianGrid,
 } from 'recharts';
 import { useApp } from '@/lib/AppContext';
-import { getLast7Days, getDaysSince, computeDayScore, formatDate } from '@/types';
+import { getLastNDays, formatDate, formatMinutes } from '@/types';
+import {
+  sessionsForDate, completedMinutesForDate, targetMinutesForDate, tasksForDate,
+  dailyScore, missedMustFinish, teamStreak, userStreak, leaderboard,
+} from '@/lib/metrics';
+
+function Card({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
+      <div className={`text-2xl font-bold ${accent ? 'text-[#2563EB]' : 'text-gray-900'}`}>{value}</div>
+      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
 
 export default function ProgressTab() {
-  const { data } = useApp();
+  const { ws, user } = useApp();
+  const days = useMemo(() => getLastNDays(7), []);
 
-  const weekDays = useMemo(() => getLast7Days(), []);
+  const rows = useMemo(() => days.map(date => {
+    const sessions = sessionsForDate(ws, date);
+    return {
+      date,
+      label: formatDate(date),
+      short: formatDate(date).split(',')[0],
+      plannedSessions: sessions.length,
+      completedSessions: sessions.filter(s => s.status === 'completed').length,
+      targetMin: targetMinutesForDate(ws, date),
+      completedMin: Math.round(completedMinutesForDate(ws, date)),
+      completedTasks: tasksForDate(ws, date).filter(t => t.status === 'completed').length,
+      missed: missedMustFinish(ws, date),
+      score: dailyScore(ws, date),
+    };
+  }), [days, ws]);
 
-  const weekData = useMemo(() => {
-    return weekDays.map(date => {
-      const day = data.days[date];
-      if (!day) {
-        return {
-          date,
-          label: formatDate(date),
-          focusedHours: 0,
-          completedBlocks: 0,
-          completedTasks: 0,
-          missedMustFinish: 0,
-          score: 0,
-          isEmpty: true,
-        };
-      }
-      const totalSeconds = day.focusBlocks.reduce((s, b) => s + b.totalSeconds, 0);
-      const focusedHours = Math.round((totalSeconds / 3600) * 100) / 100;
-      const completedBlocks = day.focusBlocks.filter(b => b.status === 'done').length;
-      const completedTasks = day.tasks.filter(t => t.done).length;
-      const missedMustFinish = day.tasks.filter(t => t.type === 'must_finish_today' && !t.done).length;
-      const score = computeDayScore(day, data.deadlines);
-      return {
-        date,
-        label: formatDate(date),
-        focusedHours,
-        completedBlocks,
-        completedTasks,
-        missedMustFinish,
-        score,
-        isEmpty: false,
-      };
-    });
-  }, [weekDays, data]);
+  const summary = useMemo(() => {
+    const totalMin = rows.reduce((s, r) => s + r.completedMin, 0);
+    const active = rows.filter(r => r.completedMin > 0 || r.plannedSessions > 0);
+    const best = [...rows].sort((a, b) => b.completedMin - a.completedMin)[0];
+    const worst = [...active].sort((a, b) => a.completedMin - b.completedMin)[0];
+    return {
+      totalHours: Math.round((totalMin / 60) * 10) / 10,
+      avgHours: Math.round((totalMin / 60 / 7) * 10) / 10,
+      best, worst,
+    };
+  }, [rows]);
 
-  const weeklyStats = useMemo(() => {
-    const nonEmpty = weekData.filter(d => !d.isEmpty);
-    if (nonEmpty.length === 0) {
-      return {
-        totalHours: 0,
-        avgHours: 0,
-        bestDay: null as any,
-        worstDay: null as any,
-        streak: 0,
-      };
-    }
-    const totalHours = weekData.reduce((s, d) => s + d.focusedHours, 0);
-    const avgHours = Math.round((totalHours / 7) * 100) / 100;
-    const sorted = [...nonEmpty].sort((a, b) => b.score - a.score);
-    const bestDay = sorted[0];
-    const worstDay = sorted[sorted.length - 1];
+  const team = useMemo(() => teamStreak(ws), [ws]);
+  const myStreak = useMemo(() => (user ? userStreak(ws, user.id) : null), [ws, user]);
+  const board = useMemo(() => leaderboard(ws), [ws]);
 
-    let streak = 0;
-    for (let i = weekDays.length - 1; i >= 0; i--) {
-      const day = data.days[weekDays[i]];
-      if (day && day.focusBlocks.some(b => b.status === 'done')) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return { totalHours: Math.round(totalHours * 100) / 100, avgHours, bestDay, worstDay, streak };
-  }, [weekData, weekDays, data]);
-
-  const chartData = weekData.map(d => ({
-    name: d.label.split(',')[0],
-    hours: d.focusedHours,
-    score: d.score,
-  }));
+  const chart = rows.map(r => ({ name: r.short, hours: Math.round((r.completedMin / 60) * 10) / 10, score: r.score }));
 
   return (
     <div className="space-y-5">
+      {/* Weekly summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-2xl font-bold text-gray-900">{weeklyStats.totalHours}h</div>
-          <div className="text-xs text-gray-500 mt-0.5">Total Hours</div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-2xl font-bold text-gray-900">{weeklyStats.avgHours}h</div>
-          <div className="text-xs text-gray-500 mt-0.5">Daily Avg</div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-2xl font-bold text-blue-600">
-            {weeklyStats.bestDay ? `${weeklyStats.bestDay.focusedHours}h` : '-'}
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">Best Day</div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-2xl font-bold text-gray-900">
-            {weeklyStats.worstDay ? `${weeklyStats.worstDay.focusedHours}h` : '-'}
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">Worst Day</div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-2xl font-bold text-blue-600">{weeklyStats.streak}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Day Streak</div>
-        </div>
+        <Card value={`${summary.totalHours}h`} label="Total Focused" />
+        <Card value={`${summary.avgHours}h`} label="Daily Average" />
+        <Card value={summary.best ? formatMinutes(summary.best.completedMin) : '—'} label="Best Day" accent />
+        <Card value={summary.worst ? formatMinutes(summary.worst.completedMin) : '—'} label="Worst Day" />
+        <Card value={`${team.current}d`} label="Team Streak" accent />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Focused Hours</h2>
+      {/* My streak */}
+      {myStreak && (
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
+          <h2 className="font-semibold text-gray-900 mb-3">Your Streak — {user!.name}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><div className="text-2xl font-bold text-[#2563EB]">{myStreak.current}d</div><div className="text-xs text-gray-500">Current</div></div>
+            <div><div className="text-2xl font-bold text-gray-900">{myStreak.best}d</div><div className="text-xs text-gray-500">Best</div></div>
+            <div><div className="text-2xl font-bold text-gray-900">{myStreak.totalSuccessful}</div><div className="text-xs text-gray-500">Total Days</div></div>
+            <div><div className="text-2xl font-bold text-gray-900">{myStreak.lastActive ? formatDate(myStreak.lastActive) : '—'}</div><div className="text-xs text-gray-500">Last Active</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
+        <h2 className="font-semibold text-gray-900 mb-4">Focused Hours Per Day</h2>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData}>
+          <BarChart data={chart}>
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }}
-              formatter={(value: any) => [`${value}h`, 'Focused Hours']}
-            />
+            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }} formatter={(v) => [`${v}h`, 'Hours']} />
             <Bar dataKey="hours" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Daily Score</h2>
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
+        <h2 className="font-semibold text-gray-900 mb-4">Daily Score</h2>
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
+          <LineChart data={chart}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }}
-              formatter={(value: any) => [value, 'Score']}
-            />
+            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }} formatter={(v) => [v, 'Score']} />
             <Line type="monotone" dataKey="score" stroke="#2563EB" strokeWidth={2} dot={{ fill: '#2563EB', r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-4 md:px-5 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Daily Breakdown</h2>
+      {/* 7-day breakdown */}
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Last 7 Days</h2></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-400 text-left">
+                <th className="px-5 py-2 font-medium">Date</th>
+                <th className="px-3 py-2 font-medium">Sessions</th>
+                <th className="px-3 py-2 font-medium">Target</th>
+                <th className="px-3 py-2 font-medium">Done</th>
+                <th className="px-3 py-2 font-medium">Tasks</th>
+                <th className="px-3 py-2 font-medium">Missed</th>
+                <th className="px-3 py-2 font-medium">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.date} className="border-t border-gray-100">
+                  <td className="px-5 py-2.5 font-medium text-gray-900 whitespace-nowrap">{r.label}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{r.completedSessions}/{r.plannedSessions}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{formatMinutes(r.targetMin)}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{formatMinutes(r.completedMin)}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{r.completedTasks}</td>
+                  <td className={`px-3 py-2.5 ${r.missed > 0 ? 'text-[#DC2626] font-medium' : 'text-gray-400'}`}>{r.missed || '—'}</td>
+                  <td className={`px-3 py-2.5 font-bold ${r.score >= 80 ? 'text-green-600' : r.score >= 50 ? 'text-[#2563EB]' : 'text-gray-400'}`}>{r.score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="divide-y divide-gray-100">
-          {weekData.map(day => (
-            <div key={day.date} className="flex items-center gap-4 px-4 md:px-5 py-3 text-sm">
-              <div className="w-24 text-gray-900 font-medium">{day.label}</div>
-              <div className="flex-1 flex gap-4 md:gap-6">
-                <span className="text-gray-600">{day.focusedHours}h</span>
-                <span className="text-gray-400 hidden sm:inline">{day.completedBlocks}/4 blocks</span>
-                <span className="text-gray-400 hidden sm:inline">{day.completedTasks} tasks</span>
-                {day.missedMustFinish > 0 && (
-                  <span className="text-red-500 font-medium">{day.missedMustFinish} missed</span>
-                )}
-              </div>
-              <div className={`font-bold ${day.score >= 80 ? 'text-green-600' : day.score >= 50 ? 'text-blue-600' : 'text-red-500'}`}>
-                {day.score}
-              </div>
-            </div>
-          ))}
+      </div>
+
+      {/* Leaderboard */}
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Leaderboard — This Week</h2></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-400 text-left">
+                <th className="px-5 py-2 font-medium">User</th>
+                <th className="px-3 py-2 font-medium">Focused</th>
+                <th className="px-3 py-2 font-medium">Tasks</th>
+                <th className="px-3 py-2 font-medium">Streak</th>
+                <th className="px-3 py-2 font-medium">Best</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-400">No users yet.</td></tr>}
+              {board.map(r => (
+                <tr key={r.userId} className={`border-t border-gray-100 ${r.userId === user?.id ? 'bg-[#2563EB]/5' : ''}`}>
+                  <td className="px-5 py-2.5 font-medium text-gray-900">{r.name}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{formatMinutes(r.focusedMinutes)}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{r.completedTasks}</td>
+                  <td className="px-3 py-2.5 text-[#2563EB] font-medium">{r.currentStreak}d</td>
+                  <td className="px-3 py-2.5 text-gray-600">{r.bestStreak}d</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

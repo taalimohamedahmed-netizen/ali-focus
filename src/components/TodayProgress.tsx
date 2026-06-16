@@ -1,45 +1,40 @@
 'use client';
 
 import { useApp } from '@/lib/AppContext';
+import { getTodayISO, formatMinutes } from '@/types';
+import {
+  sessionsForDate, completedMinutesForDate, targetMinutesForDate,
+} from '@/lib/metrics';
+
+function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className={`text-2xl md:text-3xl font-bold ${accent ? 'text-[#2563EB]' : 'text-gray-900'}`}>{value}</div>
+      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
 
 export default function TodayProgress() {
-  const { totalTodaySeconds, completedBlocksCount, todayData } = useApp();
-  const targetSeconds = 8 * 3600;
-  const percent = Math.min(100, Math.round((totalTodaySeconds / targetSeconds) * 100));
-
-  const mustFinishTotal = todayData.tasks.filter(t => t.type === 'must_finish_today').length;
-  const mustFinishDone = todayData.tasks.filter(t => t.type === 'must_finish_today' && t.done).length;
-  const totalTasks = todayData.tasks.length;
-  const doneTasks = todayData.tasks.filter(t => t.done).length;
+  const { ws } = useApp();
+  const today = getTodayISO();
+  const target = targetMinutesForDate(ws, today);
+  const completed = completedMinutesForDate(ws, today);
+  const sessions = sessionsForDate(ws, today);
+  const doneSessions = sessions.filter(s => s.status === 'completed').length;
+  const pct = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Today Progress</h2>
+    <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
+      <h2 className="font-semibold text-gray-900 mb-4">Today&apos;s Progress</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <div className="text-2xl md:text-3xl font-bold text-gray-900">
-            {Math.floor(totalTodaySeconds / 3600)}h {Math.floor((totalTodaySeconds % 3600) / 60)}m
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">Focused Hours</div>
-        </div>
-        <div>
-          <div className="text-2xl md:text-3xl font-bold text-gray-900">{completedBlocksCount}/4</div>
-          <div className="text-xs text-gray-500 mt-0.5">Blocks Done</div>
-        </div>
-        <div>
-          <div className="text-2xl md:text-3xl font-bold text-blue-600">{percent}%</div>
-          <div className="text-xs text-gray-500 mt-0.5">of 8h Target</div>
-        </div>
-        <div>
-          <div className="text-2xl md:text-3xl font-bold text-gray-900">{doneTasks}/{totalTasks}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Tasks Done</div>
-        </div>
+        <Stat value={formatMinutes(target)} label="Target" />
+        <Stat value={formatMinutes(completed)} label="Completed" />
+        <Stat value={`${doneSessions}/${sessions.length}`} label="Sessions" />
+        <Stat value={`${pct}%`} label="Completion" accent />
       </div>
-      <div className="mt-3 w-full bg-gray-100 rounded-full h-2.5">
-        <div
-          className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-          style={{ width: `${percent}%` }}
-        />
+      <div className="h-2 bg-gray-100 rounded-full mt-4 overflow-hidden">
+        <div className="h-full bg-[#2563EB] rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

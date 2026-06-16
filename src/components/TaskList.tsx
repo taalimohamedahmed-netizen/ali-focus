@@ -1,117 +1,101 @@
 'use client';
 
 import { useState } from 'react';
-import { Task, DEFAULT_PROJECTS } from '@/types';
+import { Priority, TaskType, getTodayISO } from '@/types';
 import { useApp } from '@/lib/AppContext';
+import { nameOf } from '@/lib/names';
+import { addTask, completeTask, deleteTask } from '@/lib/api';
+
+const PRIORITY_STYLE: Record<Priority, string> = {
+  high: 'bg-red-100 text-[#DC2626]',
+  medium: 'bg-amber-100 text-amber-700',
+  low: 'bg-gray-100 text-gray-500',
+};
 
 export default function TaskList() {
-  const { todayData, addTask, toggleTaskDone, deleteTask } = useApp();
+  const { ws, user, refresh } = useApp();
   const [title, setTitle] = useState('');
-  const [project, setProject] = useState<string>(DEFAULT_PROJECTS[0]);
-  const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
-  const [type, setType] = useState<'must_finish_today' | 'optional'>('must_finish_today');
+  const [projectId, setProjectId] = useState('');
+  const [priority, setPriority] = useState<Priority>('medium');
+  const [type, setType] = useState<TaskType>('must_finish');
+  if (!user) return null;
 
-  const handleAdd = () => {
+  const today = getTodayISO();
+  const tasks = ws.tasks
+    .filter(t => t.work_date === today)
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'must_finish' ? -1 : 1;
+      if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
+      const rank = { high: 0, medium: 1, low: 2 };
+      return rank[a.priority] - rank[b.priority];
+    });
+
+  const act = async (fn: () => Promise<void>) => { await fn(); await refresh(); };
+
+  const submit = () => {
     if (!title.trim()) return;
-    addTask({ title: title.trim(), project, priority, type, done: false });
+    const proj = ws.projects.find(p => p.id === projectId);
+    act(() => addTask({
+      projectId: proj?.id ?? null,
+      projectName: proj?.name ?? null,
+      title, priority, type, userId: user.id,
+    }));
     setTitle('');
   };
 
-  const sortedTasks = [...todayData.tasks].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (a.type !== b.type) return a.type === 'must_finish_today' ? -1 : 1;
-    const order = { high: 0, medium: 1, low: 2 };
-    return order[a.priority] - order[b.priority];
-  });
-
-  const priorityColors = { high: 'bg-red-500', medium: 'bg-blue-500', low: 'bg-gray-300' };
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Today Tasks</h2>
-      <div className="flex flex-wrap gap-2 mb-3">
+    <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
+      <h2 className="font-semibold text-gray-900 mb-3">Tasks</h2>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <input
-          type="text"
           value={title}
           onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          placeholder="Add a task..."
-          className="flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          placeholder="Task title"
+          className="col-span-2 sm:col-span-4 px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
         />
-        <select
-          value={project}
-          onChange={e => setProject(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {DEFAULT_PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+        <select value={projectId} onChange={e => setProjectId(e.target.value)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#2563EB]">
+          <option value="">No project</option>
+          {ws.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select
-          value={priority}
-          onChange={e => setPriority(e.target.value as any)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
+        <select value={priority} onChange={e => setPriority(e.target.value as Priority)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#2563EB]">
           <option value="high">High</option>
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
-        <select
-          value={type}
-          onChange={e => setType(e.target.value as any)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="must_finish_today">Must Finish</option>
+        <select value={type} onChange={e => setType(e.target.value as TaskType)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#2563EB]">
+          <option value="must_finish">Must finish</option>
           <option value="optional">Optional</option>
         </select>
-        <button
-          onClick={handleAdd}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Add
-        </button>
+        <button onClick={submit} className="px-3 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-blue-700">Add</button>
       </div>
-      <div className="space-y-1.5 max-h-64 overflow-y-auto">
-        {sortedTasks.length === 0 && (
-          <p className="text-sm text-gray-400 py-4 text-center">No tasks yet. Add one above.</p>
-        )}
-        {sortedTasks.map(task => (
-          <div
-            key={task.id}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-              task.done ? 'bg-gray-50' : 'hover:bg-gray-50'
-            }`}
-          >
-            <button
-              onClick={() => toggleTaskDone(task.id)}
-              className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                task.done
-                  ? 'bg-green-500 border-green-500 text-white'
-                  : 'border-gray-300 hover:border-blue-500'
-              }`}
-            >
-              {task.done && (
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${priorityColors[task.priority]}`} />
-            <span className={`flex-1 text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-              {task.title}
+
+      <div className="space-y-2">
+        {tasks.length === 0 && <p className="text-sm text-gray-400">No tasks yet.</p>}
+        {tasks.map(t => (
+          <div key={t.id} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+            <input
+              type="checkbox"
+              checked={t.status === 'completed'}
+              onChange={() => act(() => completeTask(t, user.id))}
+              className="w-4 h-4 accent-[#2563EB] shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm ${t.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                {t.title}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-400 mt-0.5">
+                {t.type === 'must_finish' && <span className="font-medium text-[#2563EB]">Must finish</span>}
+                {t.project_name && <span>{t.project_name}</span>}
+                <span>by {nameOf(ws, t.created_by)}</span>
+                {t.completed_by && <span>· done {nameOf(ws, t.completed_by)}</span>}
+              </div>
+            </div>
+            <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_STYLE[t.priority]}`}>
+              {t.priority}
             </span>
-            <span className="text-xs text-gray-400 hidden sm:inline">{task.project}</span>
-            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-              task.type === 'must_finish_today' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'
-            }`}>
-              {task.type === 'must_finish_today' ? 'Must' : 'Opt'}
-            </span>
-            <button
-              onClick={() => deleteTask(task.id)}
-              className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <button onClick={() => act(() => deleteTask(t.id))} className="shrink-0 text-sm text-gray-300 hover:text-[#DC2626]">✕</button>
           </div>
         ))}
       </div>
