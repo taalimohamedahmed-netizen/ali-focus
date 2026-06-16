@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import { put, get } from '@vercel/blob';
 
-// Single shared document key — this is a personal single-user app.
-const DATA_KEY = 'ali-focus-data';
+// Single shared document — this is a personal single-user app.
+const BLOB_PATH = 'ali-focus-data.json';
 
-// Read Upstash/Vercel KV credentials from whichever env var names are present.
-function getRedis(): Redis | null {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.KV_REST_API_URL ||
-    process.env.REDIS_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.KV_REST_API_TOKEN;
-  if (!url || !token) return null;
-  return new Redis({ url, token });
+function isConfigured(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
 function checkAuth(req: NextRequest): boolean {
@@ -29,27 +20,35 @@ function checkAuth(req: NextRequest): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  const redis = getRedis();
-  if (!redis) {
+  if (!isConfigured()) {
     return NextResponse.json({ configured: false }, { status: 501 });
   }
   if (!checkAuth(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
   try {
-    const data = await redis.get(DATA_KEY);
-    return NextResponse.json({ configured: true, data: data ?? null });
+    const result = await get(BLOB_PATH, { access: 'private', useCache: false });
+    if (!result || result.statusCode !== 200) {
+      return NextResponse.json({ configured: true, data: null });
+    }
+    const text = await new Response(result.stream).text();
+    const data = text ? JSON.parse(text) : null;
+    return NextResponse.json({ configured: true, data });
   } catch (err) {
+    // A missing blob throws — treat as "no data yet".
+    const msg = String(err);
+    if (msg.includes('not found') || msg.includes('404')) {
+      return NextResponse.json({ configured: true, data: null });
+    }
     return NextResponse.json(
-      { error: 'read_failed', detail: String(err) },
+      { error: 'read_failed', detail: msg },
       { status: 500 }
     );
   }
 }
 
 export async function PUT(req: NextRequest) {
-  const redis = getRedis();
-  if (!redis) {
+  if (!isConfigured()) {
     return NextResponse.json({ configured: false }, { status: 501 });
   }
   if (!checkAuth(req)) {
@@ -60,7 +59,13 @@ export async function PUT(req: NextRequest) {
     if (!body || typeof body !== 'object' || typeof body.days !== 'object') {
       return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
     }
-    await redis.set(DATA_KEY, body);
+    await put(BLOB_PATH, JSON.stringify(body), {
+      access: 'private',
+      allowOverwrite: true,
+      addRandomSuffix: false,
+      contentType: 'application/json',
+      cacheControlMaxAge: 60,
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

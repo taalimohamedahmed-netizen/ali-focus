@@ -15,7 +15,15 @@
       "Bash(vercel link *)",
       "Bash(vercel deploy *)",
       "Bash(vercel inspect *)",
-      "Bash(git -c user.name=taalimohamedahmed-netizen -c user.email=alii.ttarek@icloud.com commit -m 'Remove Windows-only swc dependency that broke Linux builds *)"
+      "Bash(git -c user.name=taalimohamedahmed-netizen -c user.email=alii.ttarek@icloud.com commit -m 'Remove Windows-only swc dependency that broke Linux builds *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel integration *)",
+      "Bash(vercel storage *)",
+      "PowerShell($paths = @\\(\"$env:APPDATA\\\\com.vercel.cli\\\\auth.json\", \"$env:USERPROFILE\\\\.local\\\\share\\\\com.vercel.cli\\\\auth.json\", \"$env:LOCALAPPDATA\\\\com.vercel.cli\\\\auth.json\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } })",
+      "Bash(vercel rm *)",
+      "Bash(vercel env *)",
+      "Bash(vercel blob *)",
+      "Bash(git -c user.name=taalimohamedahmed-netizen -c user.email=alii.ttarek@icloud.com commit -m 'Use Vercel Blob \\(private\\) for cloud sync instead of Upstash *)"
     ]
   }
 }
