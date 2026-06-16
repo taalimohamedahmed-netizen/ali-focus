@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(curl *)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(npx next *)",
+      "PowerShell(winget install *)",
+      "Bash(git -c user.name=taalimohamedahmed-netizen -c user.email=alii.ttarek@icloud.com commit -m 'Ali Focus: daily focus tracker with cloud sync *)"
+    ]
+  }
+}
