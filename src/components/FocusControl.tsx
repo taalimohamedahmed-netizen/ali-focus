@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/lib/AppContext';
 import { getTodayISO, Session } from '@/types';
-import { sessionsForDate, liveSessionMinutes } from '@/lib/metrics';
+import { sessionsForDate, liveSessionMinutes, tasksForDate } from '@/lib/metrics';
 import {
   ensureTodayPlan, startNewSession, pauseSession, finishSession, resumeSession,
 } from '@/lib/api';
@@ -122,15 +122,27 @@ export default function FocusControl() {
   }
 
   // ---- idle composer ----
+  const myTasks = tasksForDate(ws, today).filter(t => t.status === 'open' && t.created_by === user.id);
   return (
     <div className="space-y-3">
-      <input
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && start()}
-        placeholder="What are you working on?"
-        className="w-full px-4 py-3 text-base border border-[#E5E7EB] rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-      />
+      {myTasks.length > 0 ? (
+        <select
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="w-full px-4 py-3 text-base border border-[#E5E7EB] rounded-xl bg-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+        >
+          <option value="">Pick a task…</option>
+          {myTasks.map(t => <option key={t.id} value={t.title}>{t.title}</option>)}
+        </select>
+      ) : (
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && start()}
+          placeholder="What are you working on?"
+          className="w-full px-4 py-3 text-base border border-[#E5E7EB] rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+        />
+      )}
       <div className="flex gap-2">
         <select value={est} onChange={e => setEst(Number(e.target.value))} className="px-3 py-3 text-sm border border-[#E5E7EB] rounded-xl bg-white focus:outline-none focus:border-orange-500">
           {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}m</option>)}
