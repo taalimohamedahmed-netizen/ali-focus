@@ -1,38 +1,47 @@
-// Screen-capture accountability: when a focus session starts we ask the user
-// once to share their screen, then grab 1-3 frames at random moments during
-// the session and upload them to Supabase Storage for later review.
+// Screen-capture accountability: when a focus session starts we grab 1-3
+// frames at random moments during the session and upload them to Supabase
+// Storage for later review.
 //
-// Browser limits (cannot be bypassed in a web app):
-//  - getDisplayMedia must be triggered by a user gesture (the Start click).
-//  - The browser shows a "you are sharing your screen" indicator.
-//  - If the user stops sharing, capture stops. Reloading the page drops the
-//    stream (a new gesture is required to share again).
+// Two backends:
+//  - Desktop (Electron): window.electronCapture.grab() takes a SILENT
+//    screenshot via the main process — no permission prompt, no banner.
+//  - Browser: getDisplayMedia, which needs a user gesture + a share prompt
+//    and shows the "sharing your screen" indicator (browser security).
 
 import { supabase } from './supabase';
 
 const BUCKET = 'screenshots';
 
+interface ElectronCapture { grab: () => Promise<string | null> }
+function electron(): ElectronCapture | null {
+  if (typeof window === 'undefined') return null;
+  return (window as unknown as { electronCapture?: ElectronCapture }).electronCapture ?? null;
+}
+
 let stream: MediaStream | null = null;
 let timers: ReturnType<typeof setTimeout>[] = [];
 
+export function isDesktop(): boolean {
+  return electron() != null;
+}
+
 export function isCapturing(): boolean {
+  if (electron()) return true;
   return stream != null && stream.getVideoTracks().some(t => t.readyState === 'live');
 }
 
-// Ask for the screen stream. MUST be called synchronously inside a click
-// handler (before any other await) to keep the user gesture valid.
+// Acquire whatever the backend needs. On desktop this is a no-op (silent).
+// In the browser it MUST run synchronously inside a click handler (before any
+// other await) to keep the user gesture valid.
 export async function requestScreen(): Promise<boolean> {
+  if (electron()) return true; // silent desktop capture, always available
   if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) return false;
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 1 },
-      audio: false,
-    });
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false });
   } catch {
     stream = null;
-    return false; // user denied or unsupported
+    return false;
   }
-  // If the user clicks the browser's "Stop sharing", tear everything down.
   stream.getVideoTracks().forEach(t => t.addEventListener('ended', stopCapture));
   return true;
 }
@@ -45,26 +54,31 @@ export function beginSchedule(sessionId: string, userId: string, durationMin: nu
   const total = Math.max(1, durationMin) * 60_000;
   const count = 1 + Math.floor(Math.random() * 3); // 1..3
   const offsets = Array.from({ length: count }, () => Math.random() * total)
-    .map(o => Math.max(3_000, o)) // never before 3s (let the frame settle)
+    .map(o => Math.max(3_000, o))
     .sort((a, b) => a - b);
 
   for (const at of offsets) {
     timers.push(setTimeout(() => { void captureFrame(sessionId, userId); }, at));
   }
-  // Auto-release the stream shortly after the planned duration.
-  timers.push(setTimeout(stopCapture, total + 5_000));
+  if (!electron()) timers.push(setTimeout(stopCapture, total + 5_000));
 }
 
-async function captureFrame(sessionId: string, userId: string) {
-  if (!stream) return;
+async function grabBlob(): Promise<Blob | null> {
+  const el = electron();
+  if (el) {
+    const dataUrl = await el.grab();
+    if (!dataUrl) return null;
+    return (await fetch(dataUrl)).blob();
+  }
+  if (!stream) return null;
   const track = stream.getVideoTracks()[0];
-  if (!track || track.readyState !== 'live') return;
+  if (!track || track.readyState !== 'live') return null;
 
   const video = document.createElement('video');
   video.srcObject = stream;
   video.muted = true;
   try { await video.play(); } catch { /* ignore */ }
-  await new Promise(r => setTimeout(r, 300)); // let a frame paint
+  await new Promise(r => setTimeout(r, 300));
 
   const w = video.videoWidth || 1280;
   const h = video.videoHeight || 720;
@@ -72,17 +86,21 @@ async function captureFrame(sessionId: string, userId: string) {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return null;
   ctx.drawImage(video, 0, 0, w, h);
   video.pause();
   video.srcObject = null;
+  return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+}
 
-  const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+async function captureFrame(sessionId: string, userId: string) {
+  const blob = await grabBlob();
   if (!blob) return;
 
-  const path = `${userId}/${sessionId}/${Date.now()}.jpg`;
+  const ext = blob.type.includes('png') ? 'png' : 'jpg';
+  const path = `${userId}/${sessionId}/${Date.now()}.${ext}`;
   const up = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: 'image/jpeg', upsert: false,
+    contentType: blob.type || 'image/jpeg', upsert: false,
   });
   if (up.error) return;
 

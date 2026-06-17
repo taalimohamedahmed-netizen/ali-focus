@@ -1,0 +1,31 @@
+{
+  "name": "ali-focus-desktop",
+  "version": "1.0.0",
+  "description": "Ali Focus desktop app with silent screenshot accountability",
+  "main": "main.js",
+  "author": "Ali Tarek",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.alifocus.desktop",
+    "productName": "Ali Focus",
+    "files": ["main.js", "preload.js"],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}
