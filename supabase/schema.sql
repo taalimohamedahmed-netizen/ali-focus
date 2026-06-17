@@ -140,6 +140,20 @@ alter table commitments disable row level security;
 -- This is a SHARED team workspace with no Supabase Auth. The anon key is the
 -- only credential, so we allow it full access. Do NOT store sensitive data.
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- screenshots  (accountability captures taken during focus sessions)
+-- ---------------------------------------------------------------------------
+create table if not exists screenshots (
+  id           uuid primary key default gen_random_uuid(),
+  session_id   uuid references sessions(id) on delete cascade,
+  user_id      uuid references users(id) on delete cascade,
+  path         text not null,
+  url          text not null,
+  captured_at  timestamptz default now(),
+  created_at   timestamptz default now()
+);
+alter table screenshots disable row level security;
+
 alter table users        disable row level security;
 alter table projects     disable row level security;
 alter table day_plans    disable row level security;
@@ -148,6 +162,26 @@ alter table tasks        disable row level security;
 alter table deadlines    disable row level security;
 alter table daily_notes  disable row level security;
 alter table activity_log disable row level security;
+alter table commitments  disable row level security;
+
+-- ---------------------------------------------------------------------------
+-- Storage bucket for screenshots (public read; anon upload/delete).
+-- storage.objects keeps RLS on, so we add explicit policies for this bucket.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('screenshots', 'screenshots', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "screenshots anon read"   on storage.objects;
+drop policy if exists "screenshots anon insert" on storage.objects;
+drop policy if exists "screenshots anon delete" on storage.objects;
+
+create policy "screenshots anon read"   on storage.objects
+  for select using (bucket_id = 'screenshots');
+create policy "screenshots anon insert" on storage.objects
+  for insert with check (bucket_id = 'screenshots');
+create policy "screenshots anon delete" on storage.objects
+  for delete using (bucket_id = 'screenshots');
 
 -- ---------------------------------------------------------------------------
 -- Seed default projects only if the table is empty

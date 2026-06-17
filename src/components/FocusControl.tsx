@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { emitProgressEvents } from '@/lib/milestones';
 import { playSound } from '@/lib/sound';
+import { requestScreen, beginSchedule, stopCapture } from '@/lib/capture';
 
 const TIME_OPTIONS = [15, 25, 30, 45, 60, 90, 120];
 const CUSTOM_BREAKS = [5, 10, 15, 20];
@@ -44,25 +45,37 @@ export default function FocusControl() {
   }, [tick, breakEndsAt]);
 
   if (!user) return null;
-  const act = async (fn: () => Promise<void>) => { await fn(); await refresh(); };
 
   const start = async () => {
+    // Ask for the screen share first, while the click gesture is still valid.
+    const sharing = await requestScreen();
     let plan = ws.dayPlans.find(p => p.work_date === today) ?? null;
     if (!plan) plan = await ensureTodayPlan(0, user.id);
-    if (!plan) return;
-    await startNewSession(plan.id, title, est, user.id);
+    if (!plan) { stopCapture(); return; }
+    const sessionId = await startNewSession(plan.id, title, est, user.id);
     setTitle('');
+    if (sharing && sessionId) beginSchedule(sessionId, user.id, est);
     await refresh();
   };
 
   const pause = async (s: Session) => {
+    stopCapture();
     await pauseSession(s, user.id);
     await refresh();
     await emitProgressEvents(user);
     await refresh();
   };
 
+  const resume = async (s: Session) => {
+    const sharing = await requestScreen();
+    await resumeSession(s, user.id);
+    const remaining = Math.max(1, s.duration_minutes - s.completed_minutes);
+    if (sharing) beginSchedule(s.id, user.id, remaining);
+    await refresh();
+  };
+
   const finish = async (s: Session) => {
+    stopCapture();
     await finishSession(s, user.id);
     await refresh();
     playSound('session_finished');
@@ -150,7 +163,7 @@ export default function FocusControl() {
         <button onClick={start} className="flex-1 py-3 text-base font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm">▶ Start Focus Session</button>
       </div>
       {paused.map(s => (
-        <button key={s.id} onClick={() => act(() => resumeSession(s, user.id))}
+        <button key={s.id} onClick={() => resume(s)}
           className="w-full flex items-center justify-between px-4 py-2.5 text-sm bg-orange-50 text-orange-800 rounded-xl hover:bg-orange-100">
           <span className="truncate">Resume “{s.title}”</span><span className="font-semibold">▶</span>
         </button>

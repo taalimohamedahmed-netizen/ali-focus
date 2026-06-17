@@ -170,18 +170,20 @@ export async function addSession(planId: string, title: string, durationMinutes:
 }
 
 // Create a session already running — used by the one-tap "Start Focus" flow.
+// Returns the new session id (used to tag accountability screenshots).
 export async function startNewSession(
   planId: string, title: string, durationMinutes: number, userId: string,
-) {
-  await supabase.from('sessions').insert({
+): Promise<string | null> {
+  const { data } = await supabase.from('sessions').insert({
     day_plan_id: planId,
     title: title.trim() || 'Focus',
     duration_minutes: durationMinutes,
     status: 'running',
     started_by: userId,
     started_at: new Date().toISOString(),
-  });
-  await logActivity(userId, 'start_session', 'session', null);
+  }).select('id').single();
+  await logActivity(userId, 'start_session', 'session', data?.id ?? null);
+  return data?.id ?? null;
 }
 
 export async function deleteSession(id: string) {
@@ -224,6 +226,34 @@ export async function finishSession(s: Session, userId: string) {
     finished_by: userId, finished_at: new Date().toISOString(),
   }).eq('id', s.id);
   await logActivity(userId, 'finish_session', 'session', s.id);
+}
+
+// ---------------------------------------------------------------------------
+// Accountability screenshots
+// ---------------------------------------------------------------------------
+
+export interface Screenshot {
+  id: string;
+  session_id: string | null;
+  user_id: string | null;
+  path: string;
+  url: string;
+  captured_at: string;
+  created_at: string;
+}
+
+export async function loadScreenshots(limit = 200): Promise<Screenshot[]> {
+  const { data } = await supabase
+    .from('screenshots')
+    .select('*')
+    .order('captured_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []) as Screenshot[];
+}
+
+export async function deleteScreenshot(s: Screenshot) {
+  await supabase.storage.from('screenshots').remove([s.path]);
+  await supabase.from('screenshots').delete().eq('id', s.id);
 }
 
 // ---------------------------------------------------------------------------

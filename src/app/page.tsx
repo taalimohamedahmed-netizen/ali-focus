@@ -8,8 +8,9 @@ import NotificationBell from '@/components/NotificationBell';
 import Home from '@/components/Home';
 import DeadlinesTab from '@/components/DeadlinesTab';
 import ProgressTab from '@/components/ProgressTab';
+import ScreenshotsTab from '@/components/ScreenshotsTab';
 
-export type View = 'home' | 'deadlines' | 'progress';
+export type View = 'home' | 'deadlines' | 'progress' | 'screenshots';
 
 export default function Page() {
   const { configured, user, loading } = useApp();
@@ -19,7 +20,7 @@ export default function Page() {
   if (!configured) return <SetupNotice />;
   if (!user) return <Login />;
 
-  const titles: Record<View, string> = { home: 'Ali Focus', deadlines: 'Deadlines', progress: 'Progress' };
+  const titles: Record<View, string> = { home: 'Ali Focus', deadlines: 'Deadlines', progress: 'Progress', screenshots: 'Screenshots' };
 
   return (
     <div className="max-w-xl mx-auto px-4 py-4 md:py-6">
@@ -38,6 +39,7 @@ export default function Page() {
       {view === 'home' && <Home />}
       {view === 'deadlines' && <DeadlinesTab />}
       {view === 'progress' && <ProgressTab />}
+      {view === 'screenshots' && <ScreenshotsTab />}
 
       <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} view={view} onNavigate={(v) => { setView(v); setMenuOpen(false); }} />
     </div>

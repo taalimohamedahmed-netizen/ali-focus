@@ -26,6 +26,7 @@ export default function MenuDrawer({ open, onClose, view, onNavigate }: {
     { id: 'home', label: 'Home' },
     { id: 'deadlines', label: 'Deadlines' },
     { id: 'progress', label: 'Progress' },
+    { id: 'screenshots', label: 'Screens' },
   ];
 
   const handleExport = async () => {
