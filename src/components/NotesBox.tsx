@@ -43,7 +43,7 @@ export default function NotesBox() {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder="Notes for today…"
-        className="w-full h-28 px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:border-[#2563EB]"
+        className="w-full h-28 px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:border-[#EA580C]"
       />
     </div>
   );

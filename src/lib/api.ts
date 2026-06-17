@@ -139,6 +139,21 @@ export async function addSession(planId: string, title: string, durationMinutes:
   });
 }
 
+// Create a session already running — used by the one-tap "Start Focus" flow.
+export async function startNewSession(
+  planId: string, title: string, durationMinutes: number, userId: string,
+) {
+  await supabase.from('sessions').insert({
+    day_plan_id: planId,
+    title: title.trim() || 'Focus',
+    duration_minutes: durationMinutes,
+    status: 'running',
+    started_by: userId,
+    started_at: new Date().toISOString(),
+  });
+  await logActivity(userId, 'start_session', 'session', null);
+}
+
 export async function deleteSession(id: string) {
   await supabase.from('sessions').delete().eq('id', id);
 }

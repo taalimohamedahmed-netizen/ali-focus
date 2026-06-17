@@ -16,7 +16,7 @@ export default function ProjectsManager() {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="text-xs font-medium text-[#2563EB] hover:underline"
+        className="text-xs font-medium text-[#EA580C] hover:underline"
       >
         {open ? 'Hide projects' : 'Manage projects'}
       </button>
@@ -31,7 +31,7 @@ export default function ProjectsManager() {
                   const v = e.target.value.trim();
                   if (v && v !== p.name) act(() => renameProject(p.id, v));
                 }}
-                className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#EA580C]"
               />
               <button
                 onClick={() => {
@@ -48,13 +48,13 @@ export default function ProjectsManager() {
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder="New project name"
-              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#EA580C]"
             />
             <button
               onClick={() => {
                 if (newName.trim()) { act(() => addProject(newName, user.id)); setNewName(''); }
               }}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-[#2563EB] rounded-lg hover:bg-blue-700"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-[#EA580C] rounded-lg hover:bg-orange-700"
             >
               Add
             </button>

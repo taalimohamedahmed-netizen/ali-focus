@@ -15,7 +15,7 @@ import {
 function Card({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
-      <div className={`text-2xl font-bold ${accent ? 'text-[#2563EB]' : 'text-gray-900'}`}>{value}</div>
+      <div className={`text-2xl font-bold ${accent ? 'text-[#EA580C]' : 'text-gray-900'}`}>{value}</div>
       <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   );
@@ -75,7 +75,7 @@ export default function ProgressTab() {
         <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Your Streak — {user!.name}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div><div className="text-2xl font-bold text-[#2563EB]">{myStreak.current}d</div><div className="text-xs text-gray-500">Current</div></div>
+            <div><div className="text-2xl font-bold text-[#EA580C]">{myStreak.current}d</div><div className="text-xs text-gray-500">Current</div></div>
             <div><div className="text-2xl font-bold text-gray-900">{myStreak.best}d</div><div className="text-xs text-gray-500">Best</div></div>
             <div><div className="text-2xl font-bold text-gray-900">{myStreak.totalSuccessful}</div><div className="text-xs text-gray-500">Total Days</div></div>
             <div><div className="text-2xl font-bold text-gray-900">{myStreak.lastActive ? formatDate(myStreak.lastActive) : '—'}</div><div className="text-xs text-gray-500">Last Active</div></div>
@@ -91,7 +91,7 @@ export default function ProgressTab() {
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }} formatter={(v) => [`${v}h`, 'Hours']} />
-            <Bar dataKey="hours" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="hours" fill="#EA580C" radius={[4, 4, 0, 0]} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -104,7 +104,7 @@ export default function ProgressTab() {
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13 }} formatter={(v) => [v, 'Score']} />
-            <Line type="monotone" dataKey="score" stroke="#2563EB" strokeWidth={2} dot={{ fill: '#2563EB', r: 4 }} />
+            <Line type="monotone" dataKey="score" stroke="#EA580C" strokeWidth={2} dot={{ fill: '#EA580C', r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -134,7 +134,7 @@ export default function ProgressTab() {
                   <td className="px-3 py-2.5 text-gray-600">{formatMinutes(r.completedMin)}</td>
                   <td className="px-3 py-2.5 text-gray-600">{r.completedTasks}</td>
                   <td className={`px-3 py-2.5 ${r.missed > 0 ? 'text-[#DC2626] font-medium' : 'text-gray-400'}`}>{r.missed || '—'}</td>
-                  <td className={`px-3 py-2.5 font-bold ${r.score >= 80 ? 'text-green-600' : r.score >= 50 ? 'text-[#2563EB]' : 'text-gray-400'}`}>{r.score}</td>
+                  <td className={`px-3 py-2.5 font-bold ${r.score >= 80 ? 'text-green-600' : r.score >= 50 ? 'text-[#EA580C]' : 'text-gray-400'}`}>{r.score}</td>
                 </tr>
               ))}
             </tbody>
@@ -159,11 +159,11 @@ export default function ProgressTab() {
             <tbody>
               {board.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-400">No users yet.</td></tr>}
               {board.map(r => (
-                <tr key={r.userId} className={`border-t border-gray-100 ${r.userId === user?.id ? 'bg-[#2563EB]/5' : ''}`}>
+                <tr key={r.userId} className={`border-t border-gray-100 ${r.userId === user?.id ? 'bg-[#EA580C]/5' : ''}`}>
                   <td className="px-5 py-2.5 font-medium text-gray-900">{r.name}</td>
                   <td className="px-3 py-2.5 text-gray-600">{formatMinutes(r.focusedMinutes)}</td>
                   <td className="px-3 py-2.5 text-gray-600">{r.completedTasks}</td>
-                  <td className="px-3 py-2.5 text-[#2563EB] font-medium">{r.currentStreak}d</td>
+                  <td className="px-3 py-2.5 text-[#EA580C] font-medium">{r.currentStreak}d</td>
                   <td className="px-3 py-2.5 text-gray-600">{r.bestStreak}d</td>
                 </tr>
               ))}

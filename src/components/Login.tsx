@@ -30,20 +30,20 @@ export default function Login() {
             onChange={e => setName(e.target.value)}
             placeholder="Name"
             autoFocus
-            className="w-full px-3.5 py-2.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+            className="w-full px-3.5 py-2.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EA580C]/30 focus:border-[#EA580C]"
           />
           <input
             value={password}
             onChange={e => setPassword(e.target.value)}
             type="password"
             placeholder="Password"
-            className="w-full px-3.5 py-2.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+            className="w-full px-3.5 py-2.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EA580C]/30 focus:border-[#EA580C]"
           />
           {error && <p className="text-sm text-[#DC2626]">{error}</p>}
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-2.5 text-sm font-semibold text-white bg-[#2563EB] rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+            className="w-full py-2.5 text-sm font-semibold text-white bg-[#EA580C] rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-60"
           >
             {busy ? 'Signing in…' : 'Continue'}
           </button>

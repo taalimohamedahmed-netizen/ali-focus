@@ -46,19 +46,19 @@ export default function DeadlinesTab() {
           <input
             value={title} onChange={e => setTitle(e.target.value)}
             placeholder="Title"
-            className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+            className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#EA580C]"
           />
-          <select value={projectId} onChange={e => setProjectId(e.target.value)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#2563EB]">
+          <select value={projectId} onChange={e => setProjectId(e.target.value)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#EA580C]">
             <option value="">No project</option>
             {ws.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]" />
-          <select value={priority} onChange={e => setPriority(e.target.value as Priority)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#2563EB]">
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#EA580C]" />
+          <select value={priority} onChange={e => setPriority(e.target.value as Priority)} className="px-2 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#EA580C]">
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <button onClick={submit} className="px-4 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-blue-700">Add</button>
+          <button onClick={submit} className="px-4 py-2 text-sm font-medium text-white bg-[#EA580C] rounded-lg hover:bg-orange-700">Add</button>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ export default function DeadlinesTab() {
               <input
                 type="checkbox" checked={d.status === 'completed'}
                 onChange={() => act(() => completeDeadline(d, user.id))}
-                className="w-4 h-4 accent-[#2563EB] shrink-0"
+                className="w-4 h-4 accent-[#EA580C] shrink-0"
               />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm truncate ${d.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{d.title}</p>
