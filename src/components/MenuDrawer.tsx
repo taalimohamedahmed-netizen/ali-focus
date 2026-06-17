@@ -1,16 +1,32 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/lib/AppContext';
 import { exportAll, importAll } from '@/lib/api';
+import { isMuted, setMuted } from '@/lib/sound';
+import type { View } from '@/app/page';
 import ProjectsManager from './ProjectsManager';
 import NotesBox from './NotesBox';
 import ApiTokenCard from './ApiTokenCard';
 
-export default function MenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function MenuDrawer({ open, onClose, view, onNavigate }: {
+  open: boolean; onClose: () => void; view: View; onNavigate: (v: View) => void;
+}) {
   const { user, logout, refresh } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
+  const [muted, setMutedState] = useState(false);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMutedState(isMuted()); }, [open]);
+
+  const toggleMute = () => { const m = !muted; setMuted(m); setMutedState(m); };
+
+  const navItems: { id: View; label: string }[] = [
+    { id: 'home', label: 'Home' },
+    { id: 'deadlines', label: 'Deadlines' },
+    { id: 'progress', label: 'Progress' },
+  ];
 
   const handleExport = async () => {
     const json = await exportAll();
@@ -52,6 +68,22 @@ export default function MenuDrawer({ open, onClose }: { open: boolean; onClose: 
         </div>
 
         <div className="px-5 space-y-4 pb-8">
+          {/* navigation */}
+          <div className="grid grid-cols-3 gap-2">
+            {navItems.map(n => (
+              <button key={n.id} onClick={() => onNavigate(n.id)}
+                className={`py-2 text-sm font-semibold rounded-xl border ${view === n.id ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-700 border-[#E5E7EB] hover:bg-gray-50'}`}>
+                {n.label}
+              </button>
+            ))}
+          </div>
+
+          {/* sound */}
+          <button onClick={toggleMute} className="w-full flex items-center justify-between bg-white border border-[#E5E7EB] rounded-2xl p-4">
+            <span className="font-semibold text-gray-900 text-sm">Sound</span>
+            <span className={`text-sm font-semibold ${muted ? 'text-gray-400' : 'text-green-600'}`}>{muted ? '🔇 Muted' : '🔊 On'}</span>
+          </button>
+
           <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4">
             <h3 className="font-semibold text-gray-900 mb-2 text-sm">Projects</h3>
             <ProjectsManager />

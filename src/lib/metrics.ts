@@ -182,6 +182,111 @@ export function leaderboard(ws: Workspace): LeaderRow[] {
 }
 
 // ---------------------------------------------------------------------------
+// Commitment game — per-user scoring
+//   +10 points per completed focus hour (from actual worked minutes only).
+//   Missing committed hours at day end → -50 weekly points per hour.
+// ---------------------------------------------------------------------------
+
+// Worked minutes today for a single user (sessions they started).
+export function userWorkedMinutes(ws: Workspace, userId: string, date: string): number {
+  return sessionsForDate(ws, date)
+    .filter(s => s.started_by === userId)
+    .reduce((sum, s) => sum + liveSessionMinutes(s), 0);
+}
+
+export function userSessionCount(ws: Workspace, userId: string, date: string): number {
+  return sessionsForDate(ws, date).filter(s => s.started_by === userId).length;
+}
+
+export function userCommittedMinutes(ws: Workspace, userId: string, date: string): number | null {
+  const c = ws.commitments.find(x => x.user_id === userId && x.work_date === date);
+  return c ? c.committed_minutes : null;
+}
+
+export function userCommitment(ws: Workspace, userId: string, date: string) {
+  return ws.commitments.find(x => x.user_id === userId && x.work_date === date) ?? null;
+}
+
+// Score from worked minutes: 10 pts/hour = worked/6, rounded.
+export function workedScore(workedMinutes: number): number {
+  return Math.round(workedMinutes / 6);
+}
+
+export function userMissingMinutes(ws: Workspace, userId: string, date: string): number {
+  const committed = userCommittedMinutes(ws, userId, date);
+  if (committed == null) return 0;
+  return Math.max(0, committed - userWorkedMinutes(ws, userId, date));
+}
+
+// Penalty points for missing hours (proportional, 50 pts/hour).
+export function penaltyPoints(missingMinutes: number): number {
+  return Math.round((missingMinutes / 60) * 50);
+}
+
+export function userTodayScore(ws: Workspace, userId: string, date: string): number {
+  return workedScore(userWorkedMinutes(ws, userId, date));
+}
+
+function datesThisWeek(): string[] {
+  const weekStart = startOfWeekISO();
+  const out: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = isoForOffset(i);
+    if (d >= weekStart) out.push(d);
+  }
+  return out;
+}
+
+// Weekly score = sum of daily worked-scores minus penalties for ended days.
+export function userWeeklyScore(ws: Workspace, userId: string): number {
+  const today = getTodayISO();
+  let total = 0;
+  for (const date of datesThisWeek()) {
+    total += userTodayScore(ws, userId, date);
+    if (date < today) {
+      const committed = userCommittedMinutes(ws, userId, date);
+      if (committed != null) total -= penaltyPoints(userMissingMinutes(ws, userId, date));
+    }
+  }
+  return total;
+}
+
+export type UserStatus = 'Safe' | 'At Risk' | 'No commitment';
+
+export function userStatus(ws: Workspace, userId: string, date: string): UserStatus {
+  const committed = userCommittedMinutes(ws, userId, date);
+  if (committed == null) return 'No commitment';
+  return userWorkedMinutes(ws, userId, date) >= committed ? 'Safe' : 'At Risk';
+}
+
+export interface UserTaskStats { done: number; total: number }
+export function userTaskStats(ws: Workspace, userId: string, date: string): UserTaskStats {
+  const mine = ws.tasks.filter(t => t.work_date === date && t.created_by === userId);
+  return { done: mine.filter(t => t.status === 'completed').length, total: mine.length };
+}
+
+export interface TeamRow {
+  userId: string;
+  name: string;
+  workedMinutes: number;
+  todayScore: number;
+  weeklyScore: number;
+  status: UserStatus;
+}
+
+export function teamRows(ws: Workspace): TeamRow[] {
+  const today = getTodayISO();
+  return ws.users.map(u => ({
+    userId: u.id,
+    name: u.name,
+    workedMinutes: userWorkedMinutes(ws, u.id, today),
+    todayScore: userTodayScore(ws, u.id, today),
+    weeklyScore: userWeeklyScore(ws, u.id),
+    status: userStatus(ws, u.id, today),
+  })).sort((a, b) => b.weeklyScore - a.weeklyScore);
+}
+
+// ---------------------------------------------------------------------------
 // Deadline helpers
 // ---------------------------------------------------------------------------
 

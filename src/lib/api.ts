@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import {
-  User, Project, DayPlan, Session, Task, Deadline, DailyNote,
+  User, Project, DayPlan, Session, Task, Deadline, DailyNote, Commitment, Activity,
   Priority, TaskType, getTodayISO,
 } from '@/types';
 
@@ -14,10 +14,13 @@ export interface Workspace {
   tasks: Task[];
   deadlines: Deadline[];
   notes: DailyNote[];
+  commitments: Commitment[];
+  activity: Activity[];
 }
 
 const EMPTY: Workspace = {
-  users: [], projects: [], dayPlans: [], sessions: [], tasks: [], deadlines: [], notes: [],
+  users: [], projects: [], dayPlans: [], sessions: [], tasks: [], deadlines: [],
+  notes: [], commitments: [], activity: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -62,7 +65,7 @@ function toUser(row: { id: string; name: string; created_at: string }): User {
 // ---------------------------------------------------------------------------
 
 export async function loadWorkspace(): Promise<Workspace> {
-  const [users, projects, dayPlans, sessions, tasks, deadlines, notes] = await Promise.all([
+  const [users, projects, dayPlans, sessions, tasks, deadlines, notes, commitments, activity] = await Promise.all([
     supabase.from('users').select('id,name,created_at').order('created_at'),
     supabase.from('projects').select('*').order('created_at'),
     supabase.from('day_plans').select('*').order('work_date', { ascending: false }),
@@ -70,6 +73,8 @@ export async function loadWorkspace(): Promise<Workspace> {
     supabase.from('tasks').select('*').order('created_at'),
     supabase.from('deadlines').select('*').order('deadline_date'),
     supabase.from('daily_notes').select('*'),
+    supabase.from('commitments').select('*'),
+    supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(40),
   ]);
   return {
     users: users.data ?? [],
@@ -79,6 +84,8 @@ export async function loadWorkspace(): Promise<Workspace> {
     tasks: tasks.data ?? [],
     deadlines: deadlines.data ?? [],
     notes: notes.data ?? [],
+    commitments: commitments.data ?? [],
+    activity: activity.data ?? [],
   } as Workspace;
 }
 
@@ -88,6 +95,29 @@ async function logActivity(userId: string, action: string, entityType: string, e
   await supabase.from('activity_log').insert({
     user_id: userId, action, entity_type: entityType, entity_id: entityId,
   });
+}
+
+// A feed/notification event with a human message.
+export async function notify(userId: string, type: string, message: string) {
+  await supabase.from('activity_log').insert({
+    user_id: userId, action: type, type, message,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Commitments (per user, per day) — hours can be increased, never decreased
+// ---------------------------------------------------------------------------
+
+export async function createCommitment(userId: string, committedMinutes: number) {
+  await supabase.from('commitments').insert({
+    user_id: userId, work_date: getTodayISO(), committed_minutes: committedMinutes,
+  });
+}
+
+export async function increaseCommitment(id: string, newMinutes: number) {
+  await supabase.from('commitments')
+    .update({ committed_minutes: newMinutes, updated_at: new Date().toISOString() })
+    .eq('id', id);
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +257,10 @@ export async function completeTask(t: Task, userId: string) {
 
 export async function deleteTask(id: string) {
   await supabase.from('tasks').delete().eq('id', id);
+}
+
+export async function updateTaskTitle(id: string, title: string) {
+  await supabase.from('tasks').update({ title: title.trim() }).eq('id', id);
 }
 
 // ---------------------------------------------------------------------------

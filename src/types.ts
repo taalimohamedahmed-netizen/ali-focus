@@ -82,6 +82,31 @@ export interface DailyNote {
   updated_at: string;
 }
 
+export interface Commitment {
+  id: string;
+  user_id: string;
+  work_date: string;
+  committed_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NotificationType =
+  | 'hour_milestone' | 'commitment_completed' | 'task_completed'
+  | 'at_risk' | 'penalty_applied' | 'session_finished' | 'break_finished'
+  | 'extra_hour';
+
+export interface Activity {
+  id: string;
+  user_id: string | null;
+  action: string | null;
+  type: NotificationType | string | null;
+  message: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  created_at: string;
+}
+
 export type TabId = 'today' | 'deadlines' | 'progress';
 
 export const DEFAULT_PROJECTS = [

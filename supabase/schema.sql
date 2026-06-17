@@ -111,11 +111,29 @@ create table if not exists daily_notes (
 create table if not exists activity_log (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references users(id) on delete set null,
-  action      text not null,
+  action      text,
+  type        text,
+  message     text,
   entity_type text,
   entity_id   uuid,
   created_at  timestamptz default now()
 );
+alter table activity_log add column if not exists type text;
+alter table activity_log add column if not exists message text;
+
+-- ---------------------------------------------------------------------------
+-- commitments  (per-user daily commitment; hours can be raised, not lowered)
+-- ---------------------------------------------------------------------------
+create table if not exists commitments (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid references users(id) on delete cascade,
+  work_date         date not null,
+  committed_minutes integer not null default 0,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now(),
+  unique(user_id, work_date)
+);
+alter table commitments disable row level security;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
