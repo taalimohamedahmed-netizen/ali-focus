@@ -5,6 +5,7 @@ import { useApp } from '@/lib/AppContext';
 import { exportAll, importAll } from '@/lib/api';
 import ProjectsManager from './ProjectsManager';
 import NotesBox from './NotesBox';
+import ApiTokenCard from './ApiTokenCard';
 
 export default function MenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, logout, refresh } = useApp();
@@ -55,6 +56,8 @@ export default function MenuDrawer({ open, onClose }: { open: boolean; onClose: 
             <h3 className="font-semibold text-gray-900 mb-2 text-sm">Projects</h3>
             <ProjectsManager />
           </div>
+
+          <ApiTokenCard />
 
           <NotesBox />
 

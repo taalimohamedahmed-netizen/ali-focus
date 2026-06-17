@@ -11,8 +11,11 @@ create table if not exists users (
   id          uuid primary key default gen_random_uuid(),
   name        text unique not null,
   password    text not null,
+  api_token   text unique,
   created_at  timestamptz default now()
 );
+-- for existing databases:
+alter table users add column if not exists api_token text unique;
 
 -- ---------------------------------------------------------------------------
 -- projects

@@ -275,6 +275,24 @@ export async function saveNote(content: string, userId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// AI API token (for Claude Code / Codex via Supabase Edge Functions)
+// ---------------------------------------------------------------------------
+
+export async function fetchApiToken(userId: string): Promise<string | null> {
+  const { data } = await supabase.from('users').select('api_token').eq('id', userId).maybeSingle();
+  return data?.api_token ?? null;
+}
+
+export async function generateApiToken(userId: string): Promise<string | null> {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const token = 'aft_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  const { error } = await supabase.from('users').update({ api_token: token }).eq('id', userId);
+  if (error) return null;
+  return token;
+}
+
+// ---------------------------------------------------------------------------
 // Export / Import
 // ---------------------------------------------------------------------------
 
