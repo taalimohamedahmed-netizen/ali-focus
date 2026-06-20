@@ -108,10 +108,11 @@ export async function notify(userId: string, type: string, message: string) {
 // Commitments (per user, per day) — hours can be increased, never decreased
 // ---------------------------------------------------------------------------
 
-export async function createCommitment(userId: string, committedMinutes: number) {
-  await supabase.from('commitments').insert({
+export async function createCommitment(userId: string, committedMinutes: number): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.from('commitments').insert({
     user_id: userId, work_date: getTodayISO(), committed_minutes: committedMinutes,
   });
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 export async function increaseCommitment(id: string, newMinutes: number) {
@@ -173,8 +174,8 @@ export async function addSession(planId: string, title: string, durationMinutes:
 // Returns the new session id (used to tag accountability screenshots).
 export async function startNewSession(
   planId: string, title: string, durationMinutes: number, userId: string,
-): Promise<string | null> {
-  const { data } = await supabase.from('sessions').insert({
+): Promise<{ id: string | null; error?: string }> {
+  const { data, error } = await supabase.from('sessions').insert({
     day_plan_id: planId,
     title: title.trim() || 'Focus',
     duration_minutes: durationMinutes,
@@ -182,8 +183,9 @@ export async function startNewSession(
     started_by: userId,
     started_at: new Date().toISOString(),
   }).select('id').single();
+  if (error) return { id: null, error: error.message };
   await logActivity(userId, 'start_session', 'session', data?.id ?? null);
-  return data?.id ?? null;
+  return { id: data?.id ?? null };
 }
 
 export async function deleteSession(id: string) {
@@ -363,6 +365,30 @@ export async function generateApiToken(userId: string): Promise<string | null> {
 export async function exportAll(): Promise<string> {
   const ws = await loadWorkspace();
   return JSON.stringify({ exported_at: new Date().toISOString(), ...ws }, null, 2);
+}
+
+// Wipe all activity/score data so the team starts a fresh week.
+// Keeps users and projects; removes everything that feeds scores/streaks.
+export async function resetAllData(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // Remove screenshot files from storage first (rows cascade via day_plans/sessions).
+    const { data: shots } = await supabase.from('screenshots').select('path');
+    const paths = (shots ?? []).map(s => s.path).filter(Boolean);
+    if (paths.length) await supabase.storage.from('screenshots').remove(paths);
+
+    // Delete every row in each table (no real row has a null id).
+    const tables = [
+      'screenshots', 'sessions', 'tasks', 'deadlines',
+      'commitments', 'daily_notes', 'activity_log', 'day_plans',
+    ];
+    for (const table of tables) {
+      const { error } = await supabase.from(table).delete().not('id', 'is', null);
+      if (error) return { ok: false, error: `${table}: ${error.message}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 export async function importAll(json: string): Promise<{ ok: boolean; error?: string }> {

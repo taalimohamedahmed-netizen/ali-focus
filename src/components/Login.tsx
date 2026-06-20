@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useApp } from '@/lib/AppContext';
+import { useToast } from '@/lib/toast';
 
 export default function Login() {
   const { login } = useApp();
+  const toast = useToast();
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,7 +17,8 @@ export default function Login() {
     setBusy(true);
     setError('');
     const res = await login(name, password);
-    if (!res.ok) setError(res.error ?? 'Login failed');
+    if (!res.ok) { setError(res.error ?? 'Login failed'); toast(res.error ?? 'Login failed', 'error'); }
+    else toast(`Signed in as ${name.trim()} ✓`, 'success');
     setBusy(false);
   };
 

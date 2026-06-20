@@ -25,6 +25,11 @@ export default function NotificationBell() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLastSeen(Number(localStorage.getItem(SEEN_KEY) ?? 0));
+    // Ask for browser-notification permission up front so popups fire even
+    // before the user opens the bell.
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, []);
 
   // optional browser notification for the newest event

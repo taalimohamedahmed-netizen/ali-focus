@@ -12,7 +12,8 @@ import {
 } from '@/lib/api';
 import { emitProgressEvents } from '@/lib/milestones';
 import { playSound } from '@/lib/sound';
-import { requestScreen, beginSchedule, stopCapture } from '@/lib/capture';
+import { requestScreen, beginSchedule, stopCapture, isDesktop } from '@/lib/capture';
+import { useToast } from '@/lib/toast';
 
 const TIME_OPTIONS = [15, 25, 30, 45, 60, 90, 120];
 const CUSTOM_BREAKS = [5, 10, 15, 20];
@@ -24,6 +25,7 @@ function mmss(min: number): string {
 
 export default function FocusControl() {
   const { ws, user, refresh, tick } = useApp();
+  const toast = useToast();
   const today = getTodayISO();
   const mine = sessionsForDate(ws, today).filter(s => s.started_by === user?.id);
   const running = mine.find(s => s.status === 'running') ?? null;
@@ -51,11 +53,14 @@ export default function FocusControl() {
     const sharing = await requestScreen();
     let plan = ws.dayPlans.find(p => p.work_date === today) ?? null;
     if (!plan) plan = await ensureTodayPlan(0, user.id);
-    if (!plan) { stopCapture(); return; }
-    const sessionId = await startNewSession(plan.id, title, est, user.id);
+    if (!plan) { stopCapture(); toast('Could not start: day plan failed. Try again.', 'error'); return; }
+    const res = await startNewSession(plan.id, title, est, user.id);
+    if (!res.id) { stopCapture(); toast(`Could not start session: ${res.error ?? 'unknown error'}`, 'error'); return; }
     setTitle('');
-    if (sharing && sessionId) beginSchedule(sessionId, user.id, est);
+    if (sharing) beginSchedule(res.id, user.id, est);
+    else if (!isDesktop()) toast('Started without screen capture (share declined).', 'info');
     await refresh();
+    toast('Focus started ▶', 'success');
   };
 
   const pause = async (s: Session) => {

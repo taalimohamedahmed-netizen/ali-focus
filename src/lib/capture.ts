@@ -68,7 +68,12 @@ export async function requestScreen(): Promise<boolean> {
   return true;
 }
 
-// Schedule 1-3 captures at random points within the session duration.
+// Capture periodically: one shot soon after start, then a jittered shot every
+// few minutes until the session is paused/finished (stopCapture clears timers).
+const FIRST_SHOT_MS = 20_000;       // first frame ~20-40s in
+const MIN_GAP_MS = 3 * 60_000;      // then one every 3-6 min
+const MAX_EXTRA_MS = 3 * 60_000;
+
 export function beginSchedule(sessionId: string, userId: string, durationMin: number) {
   const el = electron();
   if (el) {
@@ -79,15 +84,16 @@ export function beginSchedule(sessionId: string, userId: string, durationMin: nu
 
   if (!isCapturing()) return;
   clearTimers();
-  const total = Math.max(1, durationMin) * 60_000;
-  const count = 1 + Math.floor(Math.random() * 3); // 1..3
-  const offsets = Array.from({ length: count }, () => Math.random() * total)
-    .map(o => Math.max(3_000, o))
-    .sort((a, b) => a - b);
-  for (const at of offsets) {
-    timers.push(setTimeout(() => { void captureFromStream(sessionId, userId); }, at));
-  }
-  timers.push(setTimeout(stopCapture, total + 5_000));
+
+  const scheduleNext = (delay: number) => {
+    timers.push(setTimeout(async () => {
+      if (!isCapturing()) return;          // stream ended → stop the chain
+      await captureFromStream(sessionId, userId);
+      scheduleNext(MIN_GAP_MS + Math.random() * MAX_EXTRA_MS);
+    }, delay));
+  };
+
+  scheduleNext(FIRST_SHOT_MS + Math.random() * 20_000);
 }
 
 async function uploadBlob(sessionId: string, userId: string, blob: Blob) {

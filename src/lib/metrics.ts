@@ -251,6 +251,11 @@ export function userWeeklyScore(ws: Workspace, userId: string): number {
   return total;
 }
 
+// Distinct days this week the user logged any worked minutes.
+export function userDaysWorkedThisWeek(ws: Workspace, userId: string): number {
+  return datesThisWeek().filter(d => userWorkedMinutes(ws, userId, d) > 0).length;
+}
+
 export type UserStatus = 'Safe' | 'At Risk' | 'No commitment';
 
 export function userStatus(ws: Workspace, userId: string, date: string): UserStatus {
@@ -269,6 +274,7 @@ export interface TeamRow {
   userId: string;
   name: string;
   workedMinutes: number;
+  daysWorked: number;
   todayScore: number;
   weeklyScore: number;
   status: UserStatus;
@@ -280,6 +286,7 @@ export function teamRows(ws: Workspace): TeamRow[] {
     userId: u.id,
     name: u.name,
     workedMinutes: userWorkedMinutes(ws, u.id, today),
+    daysWorked: userDaysWorkedThisWeek(ws, u.id),
     todayScore: userTodayScore(ws, u.id, today),
     weeklyScore: userWeeklyScore(ws, u.id),
     status: userStatus(ws, u.id, today),

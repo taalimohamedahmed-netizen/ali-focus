@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useApp } from '@/lib/AppContext';
+import { useToast } from '@/lib/toast';
 import { getTodayISO, formatMinutes } from '@/types';
 import { userCommitment } from '@/lib/metrics';
 import {
@@ -11,6 +12,7 @@ import {
 
 export default function CommitmentCard() {
   const { ws, user, refresh } = useApp();
+  const toast = useToast();
   const today = getTodayISO();
   const commitment = user ? userCommitment(ws, user.id, today) : null;
   const myTasks = ws.tasks.filter(t => t.work_date === today && t.created_by === user?.id);
@@ -19,19 +21,45 @@ export default function CommitmentCard() {
   const [drafts, setDrafts] = useState<string[]>(['']);
   const [incHours, setIncHours] = useState('');
   const [newTask, setNewTask] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   if (!user) return null;
   const act = async (fn: () => Promise<void>) => { await fn(); await refresh(); };
 
   const createDay = async () => {
+    if (creating) return;                       // block double-submit
     const h = parseFloat(hours);
-    if (isNaN(h) || h <= 0) return;
-    await createCommitment(user.id, Math.round(h * 60));
-    await ensureTodayPlan(0, user.id);
-    for (const d of drafts.map(s => s.trim()).filter(Boolean)) {
-      await addTask({ projectId: null, projectName: null, title: d, priority: 'medium', type: 'must_finish', userId: user.id });
+    if (isNaN(h) || h <= 0) { toast('Enter a valid number of hours', 'error'); return; }
+    setCreating(true);
+    try {
+      const c = await createCommitment(user.id, Math.round(h * 60));
+      if (!c.ok) { toast(`Could not create day: ${c.error}`, 'error'); return; }
+      const plan = await ensureTodayPlan(0, user.id);
+      if (!plan) { toast('Could not create day plan. Try again.', 'error'); return; }
+      // de-dupe identical task lines before inserting
+      const lines = [...new Set(drafts.map(s => s.trim()).filter(Boolean))];
+      for (const d of lines) {
+        await addTask({ projectId: null, projectName: null, title: d, priority: 'medium', type: 'must_finish', userId: user.id });
+      }
+      await refresh();
+      toast('Day created ✓', 'success');
+    } finally {
+      setCreating(false);
     }
-    await refresh();
+  };
+
+  const addNewTask = async () => {
+    const title = newTask.trim();
+    if (!title || adding) return;               // block double-submit
+    setAdding(true);
+    setNewTask('');
+    try {
+      await addTask({ projectId: null, projectName: null, title, priority: 'medium', type: 'must_finish', userId: user.id });
+      await refresh();
+    } finally {
+      setAdding(false);
+    }
   };
 
   const increase = async () => {
@@ -80,7 +108,7 @@ export default function CommitmentCard() {
           <button onClick={() => setDrafts(ds => [...ds, ''])} className="text-xs font-medium text-orange-600 hover:underline">+ Add task line</button>
         </div>
 
-        <button onClick={createDay} className="w-full py-3 text-base font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm">Create My Day</button>
+        <button onClick={createDay} disabled={creating} className="w-full py-3 text-base font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm disabled:opacity-60">{creating ? 'Creating…' : 'Create My Day'}</button>
       </div>
     );
   }
@@ -119,7 +147,7 @@ export default function CommitmentCard() {
 
       <div className="flex gap-2 mt-3">
         <input value={newTask} onChange={e => setNewTask(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && newTask.trim()) { act(() => addTask({ projectId: null, projectName: null, title: newTask, priority: 'medium', type: 'must_finish', userId: user.id })); setNewTask(''); } }}
+          onKeyDown={e => { if (e.key === 'Enter') addNewTask(); }}
           placeholder="+ Add task"
           className="flex-1 px-3 py-2 text-sm border border-[#E5E7EB] rounded-xl focus:outline-none focus:border-orange-500" />
       </div>

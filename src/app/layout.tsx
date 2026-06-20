@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/AppContext";
+import { ToastProvider } from "@/lib/toast";
 
 export const metadata: Metadata = {
   title: "Ali Focus",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
-        <AppProvider>{children}</AppProvider>
+        <ToastProvider>
+          <AppProvider>{children}</AppProvider>
+        </ToastProvider>
       </body>
     </html>
   );

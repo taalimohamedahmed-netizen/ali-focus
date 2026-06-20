@@ -10,7 +10,9 @@ import {
 } from '@/lib/api';
 
 const USER_KEY = 'aliFocusUser';
-const POLL_MS = 15000;
+const POLL_MS = 10000;
+const VERSION_POLL_MS = 60000;
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/ali-focus';
 
 interface AppContextType {
   configured: boolean;
@@ -67,6 +69,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 1s heartbeat for running session timers
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Pull fresh data whenever the tab becomes visible / regains focus, so a
+  // teammate's update shows up the moment you look at the app again.
+  useEffect(() => {
+    const onWake = () => { if (document.visibilityState === 'visible') void refresh(); };
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    return () => {
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+    };
+  }, [refresh]);
+
+  // Auto-reload when a new app version is deployed (beats GitHub Pages cache).
+  // Compares the version seen at load against the live version.json.
+  useEffect(() => {
+    let loaded: string | null = null;
+    const check = async () => {
+      try {
+        const r = await fetch(`${BASE_PATH}/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) return;
+        const { v } = await r.json();
+        if (!v) return;
+        if (loaded == null) loaded = v;
+        else if (v !== loaded) window.location.reload();
+      } catch { /* offline / not deployed yet — ignore */ }
+    };
+    void check();
+    const id = setInterval(check, VERSION_POLL_MS);
     return () => clearInterval(id);
   }, []);
 

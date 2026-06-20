@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/lib/AppContext';
-import { exportAll, importAll } from '@/lib/api';
+import { exportAll, importAll, resetAllData } from '@/lib/api';
 import { isMuted, setMuted } from '@/lib/sound';
 import type { View } from '@/app/page';
 import ProjectsManager from './ProjectsManager';
@@ -54,6 +54,15 @@ export default function MenuDrawer({ open, onClose, view, onNavigate }: {
     e.target.value = '';
   };
 
+  const handleReset = async () => {
+    if (!window.confirm('Reset all scores, sessions, tasks, commitments and history? Users and projects are kept. This cannot be undone.')) return;
+    setMsg('Resetting…');
+    const res = await resetAllData();
+    setMsg(res.ok ? 'Reset ✓' : `Failed: ${res.error}`);
+    await refresh();
+    setTimeout(() => setMsg(''), 4000);
+  };
+
   return (
     <>
       <div
@@ -99,6 +108,7 @@ export default function MenuDrawer({ open, onClose, view, onNavigate }: {
             <button onClick={handleExport} className="w-full py-2 text-sm font-medium text-gray-700 bg-white border border-[#E5E7EB] rounded-lg hover:bg-gray-50">Export JSON</button>
             <button onClick={() => fileRef.current?.click()} className="w-full py-2 text-sm font-medium text-gray-700 bg-white border border-[#E5E7EB] rounded-lg hover:bg-gray-50">Import JSON</button>
             <input ref={fileRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+            <button onClick={handleReset} className="w-full py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50">Reset all data</button>
             {msg && <p className="text-xs text-gray-500 text-center">{msg}</p>}
           </div>
 
