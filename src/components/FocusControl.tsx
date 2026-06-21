@@ -3,7 +3,7 @@
 // Live-clock + audio control. Reads Date.now() in render for the timer.
 /* eslint-disable react-hooks/purity, react-hooks/set-state-in-effect */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/lib/AppContext';
 import { getTodayISO, Session } from '@/types';
 import { sessionsForDate, liveSessionMinutes, tasksForDate } from '@/lib/metrics';
@@ -37,6 +37,7 @@ export default function FocusControl() {
   const [breakDone, setBreakDone] = useState(false);
   const [endModal, setEndModal] = useState<Session | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const autoFiredRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (breakEndsAt && Date.now() >= breakEndsAt) {
@@ -45,6 +46,30 @@ export default function FocusControl() {
       playSound('break_finished');
     }
   }, [tick, breakEndsAt]);
+
+  // Auto-stop the session the moment it reaches the chosen duration: notify,
+  // close it (no overrun), and show the popup so the user can choose to continue.
+  useEffect(() => {
+    if (!user || !running) return;
+    if (liveSessionMinutes(running) < running.duration_minutes) return;
+    if (autoFiredRef.current === running.id) return;
+    autoFiredRef.current = running.id;
+    const s = running;
+    void (async () => {
+      stopCapture();
+      await finishSession(s, user.id);
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('Ali Focus', { body: `⏱️ Time's up — ${s.duration_minutes}m session done` });
+      }
+      playSound('session_finished');
+      toast(`⏱️ ${s.duration_minutes}m up — session ended`, 'success');
+      await refresh();
+      const r = await emitProgressEvents(user);
+      if (r.commitmentCompleted) playSound('commitment_completed');
+      await refresh();
+      setEndModal(s);
+    })();
+  }, [tick, running, user, refresh, toast]);
 
   if (!user) return null;
 
