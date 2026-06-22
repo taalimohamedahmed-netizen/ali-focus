@@ -237,6 +237,8 @@ function datesThisWeek(): string[] {
   return out;
 }
 
+const HISTORY_DAYS = 400; // how far back all-time stats scan
+
 // Weekly score = sum of daily worked-scores minus penalties for ended days.
 export function userWeeklyScore(ws: Workspace, userId: string): number {
   const today = getTodayISO();
@@ -251,9 +253,34 @@ export function userWeeklyScore(ws: Workspace, userId: string): number {
   return total;
 }
 
+// All-time score = every day's worked-score minus penalties for ended days
+// where the commitment was missed. Never resets (unlike the weekly score).
+export function userTotalScore(ws: Workspace, userId: string): number {
+  const today = getTodayISO();
+  let total = 0;
+  for (let i = 0; i < HISTORY_DAYS; i++) {
+    const date = isoForOffset(i);
+    total += userTodayScore(ws, userId, date);
+    if (date < today) {
+      const committed = userCommittedMinutes(ws, userId, date);
+      if (committed != null) total -= penaltyPoints(userMissingMinutes(ws, userId, date));
+    }
+  }
+  return total;
+}
+
 // Distinct days this week the user logged any worked minutes.
 export function userDaysWorkedThisWeek(ws: Workspace, userId: string): number {
   return datesThisWeek().filter(d => userWorkedMinutes(ws, userId, d) > 0).length;
+}
+
+// Distinct days ever the user logged any worked minutes.
+export function userDaysWorkedTotal(ws: Workspace, userId: string): number {
+  let n = 0;
+  for (let i = 0; i < HISTORY_DAYS; i++) {
+    if (userWorkedMinutes(ws, userId, isoForOffset(i)) > 0) n++;
+  }
+  return n;
 }
 
 export type UserStatus = 'Safe' | 'At Risk' | 'No commitment';
@@ -276,7 +303,7 @@ export interface TeamRow {
   workedMinutes: number;
   daysWorked: number;
   todayScore: number;
-  weeklyScore: number;
+  score: number; // all-time, never resets
   status: UserStatus;
 }
 
@@ -286,11 +313,11 @@ export function teamRows(ws: Workspace): TeamRow[] {
     userId: u.id,
     name: u.name,
     workedMinutes: userWorkedMinutes(ws, u.id, today),
-    daysWorked: userDaysWorkedThisWeek(ws, u.id),
+    daysWorked: userDaysWorkedTotal(ws, u.id),
     todayScore: userTodayScore(ws, u.id, today),
-    weeklyScore: userWeeklyScore(ws, u.id),
+    score: userTotalScore(ws, u.id),
     status: userStatus(ws, u.id, today),
-  })).sort((a, b) => b.weeklyScore - a.weeklyScore);
+  })).sort((a, b) => b.score - a.score);
 }
 
 // ---------------------------------------------------------------------------

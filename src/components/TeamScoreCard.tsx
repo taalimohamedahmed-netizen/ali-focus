@@ -21,7 +21,7 @@ export default function TeamScoreCard() {
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
               <span className="flex-1 min-w-0 font-semibold text-gray-900 truncate">{r.name}</span>
               <span className="text-sm text-gray-500 w-16 text-right">{r.daysWorked}<span className="text-[10px] text-gray-400"> d</span></span>
-              <span className="text-sm font-bold text-orange-600 w-16 text-right">{r.weeklyScore}<span className="text-[10px] text-gray-400"> score</span></span>
+              <span className="text-sm font-bold text-orange-600 w-16 text-right">{r.score}<span className="text-[10px] text-gray-400"> score</span></span>
             </div>
           );
         })}
